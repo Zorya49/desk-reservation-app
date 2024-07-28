@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desk Reservation</title>
+    <style>
+        .desk {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: green;
+            cursor: pointer;
+        }
+        .reserved {
+            background-color: red !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>Desk Reservation</h1>
+    <label for="date">Select Date:</label>
+    <input type="date" id="date" name="date" onchange="loadReservations()">
+
+    <div id="map" style="position: relative;">
+        <img src="/static/office_layout.jpg" alt="Office Layout">
+        <!-- Example desk positions -->
+        <div class="desk" data-id="1" style="top: 90px; left: 178px;"></div>
+        <div class="desk" data-id="2" style="top: 153px; left: 178px;"></div>
+        <div class="desk" data-id="3" style="top: 216px; left: 178px;"></div>
+        <div class="desk" data-id="4" style="top: 279px; left: 178px;"></div>
+        <div class="desk" data-id="5" style="top: 90px; left: 217px;"></div>
+        <div class="desk" data-id="6" style="top: 90px; left: 364px;"></div>
+        <div class="desk" data-id="7" style="top: 90px; left: 403px;"></div>
+        <!-- Add more desks based on your layout -->
+    </div>
+
+    <script>
+        function loadReservations() {
+            const date = document.getElementById('date').value;
+            fetch(`/reservations?date=${date}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.querySelectorAll('.desk').forEach(desk => {
+                        desk.classList.remove('reserved');
+                        desk.title = '';
+                    });
+                    data.forEach(reservation => {
+                        const desk = document.querySelector(`.desk[data-id="${reservation[0]}"]`);
+                        if (desk) {
+                            desk.classList.add('reserved');
+                            desk.title = reservation[1];
+                        }
+                    });
+                });
+        }
+
+        document.querySelectorAll('.desk').forEach(desk => {
+            desk.addEventListener('click', function() {
+                if (this.classList.contains('reserved')) {
+                    alert(`Reserved by: ${this.title}`);
+                } else {
+                    const name = prompt('Enter your name:');
+                    const date = document.getElementById('date').value;
+                    if (name && date) {
+                        fetch('/reserve', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                desk_id: this.dataset.id,
+                                name: name,
+                                date: date
+                            })
+                        }).then(response => response.json())
+                          .then(data => {
+                              if (data.success) {
+                                  this.classList.add('reserved');
+                                  this.title = name;
+                              }
+                          });
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
