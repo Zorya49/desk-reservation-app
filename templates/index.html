@@ -15,6 +15,9 @@
         .reserved {
             background-color: red !important;
         }
+        .own-reservation {
+            background-color: blue !important;
+        }
     </style>
 </head>
 <body>
@@ -36,19 +39,37 @@
     </div>
 
     <script>
+        // Set the date input to today's date
+        function setDateToToday() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            const localToday = `${year}-${month}-${day}`;
+            document.getElementById('date').value = localToday;
+            loadReservations();
+        }
+
         function loadReservations() {
             const date = document.getElementById('date').value;
+            if (!date) return;
+
             fetch(`/reservations?date=${date}`)
                 .then(response => response.json())
                 .then(data => {
+                    const myIP = '{{ request.remote_addr }}';
                     document.querySelectorAll('.desk').forEach(desk => {
-                        desk.classList.remove('reserved');
+                        desk.classList.remove('reserved', 'own-reservation');
                         desk.title = '';
                     });
                     data.forEach(reservation => {
                         const desk = document.querySelector(`.desk[data-id="${reservation[0]}"]`);
                         if (desk) {
-                            desk.classList.add('reserved');
+                            if (reservation[2] === myIP) {
+                                desk.classList.add('own-reservation');
+                            } else {
+                                desk.classList.add('reserved');
+                            }
                             desk.title = reservation[1];
                         }
                     });
@@ -57,11 +78,31 @@
 
         document.querySelectorAll('.desk').forEach(desk => {
             desk.addEventListener('click', function() {
-                if (this.classList.contains('reserved')) {
+                const date = document.getElementById('date').value;
+                if (this.classList.contains('own-reservation')) {
+                    if (confirm(`Do you want to remove your reservation?`)) {
+                        fetch('/delete_reservation', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                desk_id: this.dataset.id,
+                                date: date
+                            })
+                        }).then(response => response.json())
+                          .then(data => {
+                              if (data.success) {
+                                  this.classList.remove('own-reservation');
+                                  this.classList.add('desk');
+                                  this.title = '';
+                              }
+                          });
+                    }
+                } else if (this.classList.contains('reserved')) {
                     alert(`Reserved by: ${this.title}`);
                 } else {
                     const name = prompt('Enter your name:');
-                    const date = document.getElementById('date').value;
                     if (name && date) {
                         fetch('/reserve', {
                             method: 'POST',
@@ -76,7 +117,7 @@
                         }).then(response => response.json())
                           .then(data => {
                               if (data.success) {
-                                  this.classList.add('reserved');
+                                  this.classList.add('own-reservation');
                                   this.title = name;
                               }
                           });
@@ -84,6 +125,8 @@
                 }
             });
         });
+
+        window.onload = setDateToToday;
     </script>
 </body>
 </html>
